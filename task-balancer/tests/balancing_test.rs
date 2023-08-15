@@ -1,8 +1,8 @@
-use task_balancer::{task::Task, node::Node, Balancer};
+use task_balancer::{node::Node, task::Task, Balancer};
 
 struct MockTask {
-	can_run: Vec<usize>,
-	id: usize
+    can_run: Vec<usize>,
+    id: usize,
 }
 
 impl Task for MockTask {
@@ -14,13 +14,19 @@ impl Task for MockTask {
 }
 
 struct MockNode {
-	queue: Vec<usize>,
-	priority: usize,
-	id: usize
+    queue: Vec<usize>,
+    priority: usize,
+    id: usize,
 }
 
 impl MockNode {
-    fn new(priority: usize, id: usize) -> Self { Self { queue: Default::default(), priority, id } }
+    fn new(priority: usize, id: usize) -> Self {
+        Self {
+            queue: Default::default(),
+            priority,
+            id,
+        }
+    }
 }
 
 impl Node for MockNode {
@@ -46,22 +52,52 @@ impl Node for MockNode {
 
 #[test]
 fn single_node() {
-	let mut node = MockNode::new(0, 0);
-	let mut balancer = Balancer::new(vec![&mut node]);
-	assert!(balancer.enqueue(MockTask {can_run: vec![0], id: 0}).is_ok());
-	assert!(balancer.enqueue(MockTask {can_run: vec![0,1,2], id: 1}).is_ok());
-	assert!(balancer.enqueue(MockTask {can_run: vec![1,2], id: 2}).is_err());
-	assert_eq!(node.queue, vec![0,1]);
+    let mut node = MockNode::new(0, 0);
+    let mut balancer = Balancer::new(vec![&mut node]);
+    assert!(balancer
+        .enqueue(MockTask {
+            can_run: vec![0],
+            id: 0
+        })
+        .is_ok());
+    assert!(balancer
+        .enqueue(MockTask {
+            can_run: vec![0, 1, 2],
+            id: 1
+        })
+        .is_ok());
+    assert!(balancer
+        .enqueue(MockTask {
+            can_run: vec![1, 2],
+            id: 2
+        })
+        .is_err());
+    assert_eq!(node.queue, vec![0, 1]);
 }
 
 #[test]
 fn multi_node() {
-	let mut node_a = MockNode::new(0, 0);
-	let mut node_b = MockNode::new(0, 1);
-	let mut balancer = Balancer::new(vec![&mut node_a, &mut node_b]);
-	assert!(balancer.enqueue(MockTask {can_run: vec![0], id: 0}).is_ok());
-	assert!(balancer.enqueue(MockTask {can_run: vec![0,1,2], id: 1}).is_ok());
-	assert!(balancer.enqueue(MockTask {can_run: vec![1,2], id: 2}).is_ok());
-	assert_eq!(node_a.queue, vec![0]);
-	assert_eq!(node_b.queue, vec![1,2]);
+    let mut node_a = MockNode::new(0, 0);
+    let mut node_b = MockNode::new(0, 1);
+    let mut balancer = Balancer::new(vec![&mut node_a, &mut node_b]);
+    assert!(balancer
+        .enqueue(MockTask {
+            can_run: vec![0],
+            id: 0
+        })
+        .is_ok());
+    assert!(balancer
+        .enqueue(MockTask {
+            can_run: vec![0, 1, 2],
+            id: 1
+        })
+        .is_ok());
+    assert!(balancer
+        .enqueue(MockTask {
+            can_run: vec![1, 2],
+            id: 2
+        })
+        .is_ok());
+    assert_eq!(node_a.queue, vec![0]);
+    assert_eq!(node_b.queue, vec![1, 2]);
 }

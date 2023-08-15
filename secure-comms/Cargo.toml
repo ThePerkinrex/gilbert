@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 tokio-rustls = "0.24.1"
 axum = {version="0.6.20", features = ["ws"]}
+tokio-tungstenite = "0.20.0"
 serde = "1.0.183"
 tokio = "1.31.0"
 futures-util = "0.3.28"

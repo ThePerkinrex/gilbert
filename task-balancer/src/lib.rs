@@ -17,7 +17,9 @@ impl<N: Node> Default for Balancer<N> {
 }
 
 impl<N: Node> Balancer<N> {
-    pub fn new(nodes: Vec<N>) -> Self { Self { nodes } }
+    pub fn new(nodes: Vec<N>) -> Self {
+        Self { nodes }
+    }
 
     pub fn enqueue(&mut self, task: <N as Node>::Task) -> Result<(), <N as Node>::Task> {
         if let Some(node) = self
@@ -30,7 +32,7 @@ impl<N: Node> Balancer<N> {
             // take the one with the smallest queue and greatest priority
             node.send_task(task);
             Ok(())
-        }else{
+        } else {
             Err(task)
         }
     }

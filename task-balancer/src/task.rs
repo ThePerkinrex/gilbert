@@ -1,4 +1,4 @@
 pub trait Task {
-	type NodeId;
+    type NodeId;
     fn can_run(&self, node: Self::NodeId) -> bool;
 }

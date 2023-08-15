@@ -34,12 +34,18 @@ pub trait Node {
     fn queue_length(&self) -> usize;
     fn priority(&self) -> usize;
     fn id(&self) -> Self::Id;
-	fn sorting(&self) -> SortingPriority {
-		SortingPriority { queue_length: self.queue_length(), priority: self.priority() }
-	}
+    fn sorting(&self) -> SortingPriority {
+        SortingPriority {
+            queue_length: self.queue_length(),
+            priority: self.priority(),
+        }
+    }
 }
 
-impl<N> Node for &'_ mut N where N: Node {
+impl<N> Node for &'_ mut N
+where
+    N: Node,
+{
     type Id = N::Id;
 
     type Task = N::Task;
