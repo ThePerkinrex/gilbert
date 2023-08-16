@@ -1,2 +1,2 @@
 [workspace]
-members = ["task-balancer", "secure-comms"]
+members = ["task-balancer", "secure-comms", "chatter-protocol", "config", "runner"]
