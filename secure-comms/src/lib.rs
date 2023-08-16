@@ -19,33 +19,42 @@ pub struct WebSocketByteStream<W> {
     socket: W,
 }
 
-pub async fn acceptor<W: Send>(
+#[inline]
+fn codec() -> LengthDelimitedCodec {
+    LengthDelimitedCodec::default()
+}
+
+pub async fn acceptor<W: Send, I, O>(
     ws: W,
     config: Arc<ServerConfig>,
-) -> std::io::Result<server::TlsStream<WebSocketByteStream<W>>>
+) -> std::io::Result<DataStream<server::TlsStream<WebSocketByteStream<W>>, I, O>>
 where
     WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
 {
-    TlsAcceptor::from(config)
+    let stream = TlsAcceptor::from(config)
         .accept(WebSocketByteStream { socket: ws })
-        .await
+        .await?;
+    let framed = Framed::new(stream, codec());
+    Ok(DataStream { inner: framed, msg: PhantomData })
 }
 
-pub async fn connector<W: Send>(
+pub async fn connector<W: Send, I, O>(
     ws: W,
     domain: ServerName,
     config: Arc<ClientConfig>,
-) -> std::io::Result<client::TlsStream<WebSocketByteStream<W>>>
+) -> std::io::Result<DataStream<client::TlsStream<WebSocketByteStream<W>>, I, O>>
 where
     WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
 {
-    TlsConnector::from(config)
+    let stream = TlsConnector::from(config)
         .connect(domain, WebSocketByteStream { socket: ws })
-        .await
+        .await?;
+    let framed = Framed::new(stream, codec());
+    Ok(DataStream { inner: framed, msg: PhantomData })
 }
 
 #[pin_project]
-pub struct DataStream<T, I, O> {
+pub struct DataStream<T, I, O = I> {
     #[pin]
     inner: Framed<T, LengthDelimitedCodec>,
     msg: PhantomData<(I, O)>,
