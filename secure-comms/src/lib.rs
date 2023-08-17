@@ -35,7 +35,10 @@ where
         .accept(WebSocketByteStream { socket: ws })
         .await?;
     let framed = Framed::new(stream, codec());
-    Ok(DataStream { inner: framed, msg: PhantomData })
+    Ok(DataStream {
+        inner: framed,
+        msg: PhantomData,
+    })
 }
 
 pub async fn connector<W: Send, I, O>(
@@ -50,7 +53,10 @@ where
         .connect(domain, WebSocketByteStream { socket: ws })
         .await?;
     let framed = Framed::new(stream, codec());
-    Ok(DataStream { inner: framed, msg: PhantomData })
+    Ok(DataStream {
+        inner: framed,
+        msg: PhantomData,
+    })
 }
 
 #[pin_project]
