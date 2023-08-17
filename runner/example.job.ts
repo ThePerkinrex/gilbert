@@ -1,18 +1,6 @@
-import { Job } from "./job.d.ts";
 
 let a: number;
-const job: Job<[number, number]> = {
-	params: [
-		{
-			name: "x",
-			type: "number",
-		},
-		{
-			name: "y",
-			type: "number",
-		},
-	],
-	stages: {
+export default  {
 		stage1: (x: number, y: number) => {
 			a = x + y;
 		},
@@ -25,6 +13,4 @@ const job: Job<[number, number]> = {
 		final_stage: () => {
 			return a;
 		},
-	},
 };
-export default job;

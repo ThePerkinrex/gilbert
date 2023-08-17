@@ -1,16 +1,5 @@
 let a;
 export default {
-	params: [
-		{
-			name: "x",
-			type: "number",
-		},
-		{
-			name: "y",
-			type: "number",
-		},
-	],
-	stages: {
 		stage1: (x, y) => {
 			a = x + y;
 		},
@@ -20,8 +9,8 @@ export default {
 		stage0: () => {
 			console.log("yes");
 		},
-		final_stage: () => {
-			return a;
+		final_stage: async () => {
+			const data = await fetch("http://example.com").then(t => t.text())
+			return data;
 		},
-	},
 };
