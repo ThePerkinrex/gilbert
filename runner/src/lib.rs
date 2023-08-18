@@ -1,12 +1,16 @@
 use std::{path::Path, rc::Rc, sync::Arc};
 
+use deno_ast::{ParseParams, SourceTextInfo, MediaType, parse_module};
 use deno_runtime::{
     deno_core::{error::AnyError, FsModuleLoader, ModuleSpecifier},
     deno_napi::v8::{self, DataError, GetPropertyNamesArgs, Global, Local, Promise, PromiseState},
     permissions::PermissionsContainer,
     worker::{MainWorker, WorkerOptions},
 };
+use module_loader::TsModuleLoader;
 use thiserror::Error;
+
+mod module_loader;
 
 #[derive(Debug, Error)]
 pub enum RunnerError {
@@ -31,12 +35,21 @@ pub enum RunnerError {
 #[allow(clippy::future_not_send)]
 pub async fn run() -> Result<(), RunnerError> {
     let js_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("example.job.js");
+    // let parse_options = ParseParams {
+    //     specifier: "todo".into(),
+    //     text_info: SourceTextInfo::from_string(std::fs::read_to_string(&js_path).unwrap()),
+    //     media_type: MediaType::from_path(&js_path),
+    //     capture_tokens: false,
+    //     scope_analysis: true,
+    //     maybe_syntax: None
+    // };
+    // let parsed = parse_module(parse_options).unwrap();
     let main_module = ModuleSpecifier::from_file_path(js_path).unwrap();
     let mut worker = MainWorker::bootstrap_from_options(
         main_module.clone(),
         PermissionsContainer::allow_all(),
         WorkerOptions {
-            module_loader: Rc::new(FsModuleLoader),
+            module_loader: Rc::new(TsModuleLoader),
             extensions: vec![],
             ..Default::default()
         },
