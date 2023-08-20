@@ -11,6 +11,7 @@ use module_loader::TsModuleLoader;
 use print_ext::print_extension;
 use thiserror::Error;
 
+// mod deno_module_loader;
 mod module_loader;
 mod print_ext;
 
@@ -19,16 +20,16 @@ pub use print_ext::{Printer, SimplePrinter};
 fn serde_json_value_to_v8<'a>(
     scope: &mut HandleScope<'a>,
     value: &serde_json::Value,
-) -> Local<'a, Value> {
-    match value {
+) -> Option<Local<'a, Value>> {
+    Some(match value {
         serde_json::Value::Null => v8::null(scope).into(),
         serde_json::Value::Bool(b) => v8::Boolean::new(scope, *b).into(),
-        serde_json::Value::Number(n) => v8::Number::new(scope, n.as_f64().unwrap()).into(),
-        serde_json::Value::String(s) => v8::String::new(scope, s).unwrap().into(),
+        serde_json::Value::Number(n) => v8::Number::new(scope, n.as_f64()?).into(),
+        serde_json::Value::String(s) => v8::String::new(scope, s)?.into(),
         serde_json::Value::Array(a) => {
             let arr: Local<'a, v8::Array> = v8::Array::new(scope, a.len() as i32);
             for (i, elem) in a.iter().enumerate() {
-                let value = serde_json_value_to_v8(scope, elem);
+                let value = serde_json_value_to_v8(scope, elem)?;
                 arr.set_index(scope, i as u32, value);
             }
             arr.into()
@@ -36,13 +37,13 @@ fn serde_json_value_to_v8<'a>(
         serde_json::Value::Object(obj) => {
             let object: Local<'a, v8::Object> = v8::Object::new(scope);
             for (key, value) in obj {
-                let key = v8::String::new(scope, key).unwrap().into();
-                let value = serde_json_value_to_v8(scope, value);
+                let key = v8::String::new(scope, key)?.into();
+                let value = serde_json_value_to_v8(scope, value)?;
                 object.set(scope, key, value);
             }
             object.into()
         }
-    }
+    })
 }
 
 #[derive(Debug, Error)]
@@ -63,6 +64,20 @@ pub enum RunnerError {
     SerdeJsonError(#[from] serde_json::Error),
     #[error(transparent)]
     SerdeV8Error(#[from] deno_core::serde_v8::Error),
+    #[error("Undecodeable args: {0:?}")]
+    UndecodeableArgs(Vec<UndecodeableArg>),
+}
+
+#[derive(Debug, Clone)]
+pub struct UndecodeableArg {
+    idx: usize,
+    value: serde_json::Value,
+}
+
+impl std::fmt::Display for UndecodeableArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(idx: {}, value: {})", self.idx, self.value)
+    }
 }
 
 pub struct RunParams<P: Printer + 'static> {
@@ -124,17 +139,28 @@ pub async fn run<P: Printer + 'static>(params: RunParams<P>) -> Result<(), Runne
                         error: Arc::new(error),
                     })?;
             let recv = Local::new(scope, &global);
+            let mut errors = Vec::new();
             let args = params
                 .params
                 .iter()
+                .enumerate()
                 // .inspect(|v| {
                 //     dbg!(v);
                 // })
-                .map(|value| serde_json_value_to_v8(scope, value))
+                .map(|(i, value)| {
+                    serde_json_value_to_v8(scope, value).or_else(|| {
+                        errors.push(UndecodeableArg {
+                            idx: i,
+                            value: value.clone(),
+                        });
+                        None
+                    })
+                })
                 // .inspect(|v| {
                 //     dbg!(v);
                 // })
-                .collect::<Vec<_>>();
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| RunnerError::UndecodeableArgs(errors))?;
             let res = func.call(scope, recv.into(), &args).unwrap();
             Global::new(scope, res)
         };
