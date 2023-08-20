@@ -1,6 +1,7 @@
-use deno_ast::{SourceTextInfo, ParseParams, MediaType};
+use deno_ast::{MediaType, ParseParams, SourceTextInfo};
 use deno_runtime::deno_core::{
-    error::AnyError, resolve_import, ModuleLoader, ModuleSpecifier, ResolutionKind, ModuleType, ModuleSourceFuture, ModuleSource, futures::FutureExt,
+    error::AnyError, futures::FutureExt, resolve_import, ModuleLoader, ModuleSource,
+    ModuleSourceFuture, ModuleSpecifier, ModuleType, ResolutionKind,
 };
 
 pub struct TsModuleLoader;
@@ -23,7 +24,7 @@ impl ModuleLoader for TsModuleLoader {
     ) -> std::pin::Pin<Box<ModuleSourceFuture>> {
         let module_specifier = module_specifier.clone();
         async move {
-			// TODO resolve URLS
+            // TODO resolve URLS
             let path = module_specifier.to_file_path().unwrap();
 
             // Determine what the MediaType is (this is done based on the file
