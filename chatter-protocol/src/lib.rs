@@ -7,4 +7,6 @@ pub enum ChatterMessage {
     GeneralConfigUpdate(GeneralConfig),
     // SendTask {},
     // SendTaskResult {}
+    Ping,
+    Pong
 }
