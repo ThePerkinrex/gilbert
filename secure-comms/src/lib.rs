@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use futures_util::{Sink, Stream};
+use futures_util::{stream::SplitStream, Sink, Stream};
 use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -10,7 +10,7 @@ use tokio_rustls::{
     rustls::{ClientConfig, ServerConfig, ServerConnection, ServerName},
     server, TlsAcceptor, TlsConnector,
 };
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use tokio_util::codec::{Framed, FramedRead, LengthDelimitedCodec};
 
 #[pin_project]
 #[derive(Debug)]
@@ -83,6 +83,8 @@ impl Acceptor {
     )>
     where
         WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
+        I: Send,
+        O: Send,
     {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let stream = self

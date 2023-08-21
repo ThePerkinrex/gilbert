@@ -5,7 +5,7 @@ mod url_diff;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
 #[diff(attr(
-    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
 pub struct GeneralConfig {
     pub nodes: Vec<Node>,
@@ -27,7 +27,7 @@ pub struct NodeConfig {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
 #[diff(attr(
-    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
 pub struct Node {
     pub address: DiffUrl,
@@ -36,7 +36,7 @@ pub struct Node {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
 #[diff(attr(
-    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
 pub struct TaskInfo {
     pub params: Vec<Param>,
@@ -49,7 +49,7 @@ pub struct TaskInfo {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
 #[diff(attr(
-    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
 pub struct Param {
     name: String,
@@ -59,7 +59,7 @@ pub struct Param {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
 #[diff(attr(
-    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
 #[serde(rename_all = "lowercase")]
 pub enum ParamType {
