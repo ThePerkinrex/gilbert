@@ -8,7 +8,7 @@ use serde_json::json;
 async fn main() {
     runner::run(RunParams {
         main_module: ModuleSpecifier::from_file_path(
-            PathBuf::from("./runner/example.job.ts")
+            PathBuf::from("./runner/exampls/example.job.js")
                 .canonicalize()
                 .unwrap(),
         )
