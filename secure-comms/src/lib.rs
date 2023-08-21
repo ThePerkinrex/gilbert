@@ -7,7 +7,7 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::{
     client,
-    rustls::{ClientConfig, ServerConfig, ServerName},
+    rustls::{ClientConfig, ServerConfig, ServerConnection, ServerName},
     server, TlsAcceptor, TlsConnector,
 };
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
@@ -24,21 +24,83 @@ fn codec() -> LengthDelimitedCodec {
     LengthDelimitedCodec::default()
 }
 
-pub async fn acceptor<W: Send, I, O>(
-    ws: W,
-    config: Arc<ServerConfig>,
-) -> std::io::Result<DataStream<server::TlsStream<WebSocketByteStream<W>>, I, O>>
+#[derive(Clone)]
+pub struct Acceptor {
+    tls: TlsAcceptor,
+}
+
+impl<T> From<T> for Acceptor
 where
-    WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
+    T: Into<TlsAcceptor>,
 {
-    let stream = TlsAcceptor::from(config)
-        .accept(WebSocketByteStream { socket: ws })
-        .await?;
-    let framed = Framed::new(stream, codec());
-    Ok(DataStream {
-        inner: framed,
-        msg: PhantomData,
-    })
+    fn from(value: T) -> Self {
+        Self { tls: value.into() }
+    }
+}
+
+impl Acceptor {
+    pub async fn accept<W: Send, I, O>(
+        &self,
+        ws: W,
+    ) -> std::io::Result<DataStream<server::TlsStream<WebSocketByteStream<W>>, I, O>>
+    where
+        WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
+    {
+        let stream = self.tls.accept(WebSocketByteStream { socket: ws }).await?;
+        let framed = Framed::new(stream, codec());
+        Ok(DataStream {
+            inner: framed,
+            msg: PhantomData,
+        })
+    }
+
+    pub async fn accept_with<W: Send, I, O, F>(
+        &self,
+        ws: W,
+        f: F,
+    ) -> std::io::Result<DataStream<server::TlsStream<WebSocketByteStream<W>>, I, O>>
+    where
+        WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
+        F: FnOnce(&mut ServerConnection) + Send,
+    {
+        let stream = self
+            .tls
+            .accept_with(WebSocketByteStream { socket: ws }, f)
+            .await?;
+        let framed = Framed::new(stream, codec());
+        Ok(DataStream {
+            inner: framed,
+            msg: PhantomData,
+        })
+    }
+
+    pub async fn accept_with_server_name<W: Send, I, O>(
+        &self,
+        ws: W,
+    ) -> std::io::Result<(
+        DataStream<server::TlsStream<WebSocketByteStream<W>>, I, O>,
+        Option<String>,
+    )>
+    where
+        WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
+    {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let stream = self
+            .tls
+            .accept_with(WebSocketByteStream { socket: ws }, |conn| {
+                let _ = tx.send(conn.server_name().map(ToString::to_string));
+            })
+            .await?;
+        let framed = Framed::new(stream, codec());
+        Ok((
+            DataStream {
+                inner: framed,
+                msg: PhantomData,
+            },
+            rx.await
+                .map_err(|err| std::io::Error::new(std::io::ErrorKind::BrokenPipe, err))?,
+        ))
+    }
 }
 
 pub async fn connector<W: Send, I, O>(

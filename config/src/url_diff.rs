@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
-use url::Url;
 use diff::Diff;
+use url::Url;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
@@ -25,13 +25,17 @@ impl Diff for DiffUrl {
     type Repr = Option<Url>;
 
     fn diff(&self, other: &Self) -> Self::Repr {
-        if self.0 == other.0 {None} else {Some(other.0.clone())}
+        if self.0 == other.0 {
+            None
+        } else {
+            Some(other.0.clone())
+        }
     }
 
     fn apply(&mut self, diff: &Self::Repr) {
         if let Some(diff) = diff {
-			self.0 = diff.clone()
-		}
+            self.0 = diff.clone()
+        }
     }
 
     fn identity() -> Self {

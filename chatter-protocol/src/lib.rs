@@ -1,4 +1,4 @@
-use config::ConfigDiff as GeneralConfig;
+use config::GeneralConfigDiff as GeneralConfig;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub enum ChatterMessage {
@@ -7,6 +7,6 @@ pub enum ChatterMessage {
     GeneralConfigUpdate(GeneralConfig),
     // SendTask {},
     // SendTaskResult {}
-    Ping,
-    Pong
+    Ping(u32),
+    Pong(u32),
 }

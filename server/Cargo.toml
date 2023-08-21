@@ -1,0 +1,18 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = { version = "0.6.20", features = ["ws"] }
+tokio-rustls = "0.24.1"
+serde_json = "1.0.105"
+config = { path = "../config" }
+chatter-protocol = { path = "../chatter-protocol" }
+secure-comms = { path = "../secure-comms" }
+runner = { path = "../runner" }
+task-balancer = { path = "../task-balancer" }
+tokio = "1.32.0"
+futures-util = "0.3.28"
