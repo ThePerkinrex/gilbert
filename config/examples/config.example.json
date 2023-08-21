@@ -1,6 +1,6 @@
 {
 	"nodes": [{
-		"address": "node1.example.com",
+		"address": "https://node1.example.com",
 		"name": "node1"
 	}],
 	"tasks": {
