@@ -1,21 +1,53 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
+use diff::Diff;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[diff(attr(
+    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+))]
 pub struct Config {
     pub nodes: Vec<Node>,
     pub tasks: HashMap<String, TaskInfo>,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[diff(attr(
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+))]
 pub struct Node {
     pub address: String,
     pub name: String,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[diff(attr(
+    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+))]
 pub struct TaskInfo {
-    pub params: Vec<String>,
-    // pub script: ScriptSource
+    pub params: Vec<Param>,
+    pub script: PathBuf
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[diff(attr(
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+))]
+pub struct Param {
+    name: String,
+    #[serde(rename = "type")]
+    ty: ParamType
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[diff(attr(
+    #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+))]
+#[serde(rename_all = "lowercase")] 
+pub enum ParamType {
+    Number,
+    String,
+    Object,
+    Array
 }
 
 // #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -23,20 +55,20 @@ pub struct TaskInfo {
 //     Mem(String),
 // }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct ConfigMods {
-    pub nodes: Option<Vec<NodeMods>>,
-    pub tasks: Option<HashMap<String, TaskInfoMods>>,
-}
+// #[derive(Debug, serde::Deserialize, serde::Serialize)]
+// pub struct ConfigMods {
+//     pub nodes: Option<Vec<NodeMods>>,
+//     pub tasks: Option<HashMap<String, TaskInfoMods>>,
+// }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct NodeMods {
-    pub address: Option<String>,
-    pub name: Option<String>,
-}
+// #[derive(Debug, serde::Deserialize, serde::Serialize)]
+// pub struct NodeMods {
+//     pub address: Option<String>,
+//     pub name: Option<String>,
+// }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct TaskInfoMods {
-    pub params: Option<Vec<String>>,
-    // pub script: Option<ScriptSource>
-}
+// #[derive(Debug, serde::Deserialize, serde::Serialize)]
+// pub struct TaskInfoMods {
+//     pub params: Option<Vec<Param>>,
+//     pub script: Option<PathBuf>
+// }

@@ -1,0 +1,18 @@
+{
+	"nodes": [{
+		"address": "node1.example.com",
+		"name": "node1"
+	}],
+	"tasks": {
+		"job1": {
+			"params": [{
+				"name": "x",
+				"type": "number"
+			}, {
+				"name": "y",
+				"type": "number"
+			}],
+			"script": "1.job.ts"
+		}
+	}
+}

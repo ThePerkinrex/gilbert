@@ -1,4 +1,4 @@
-use config::ConfigMods as GeneralConfig;
+use config::ConfigDiff as GeneralConfig;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub enum ChatterMessage {
