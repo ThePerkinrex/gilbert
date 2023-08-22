@@ -36,9 +36,12 @@ pub enum NodeStatus {
     Up(Connection),
 }
 
-type DataStreamShort<S, I, O = I> =
+type DataStreamShortServer<S, I, O = I> =
     DataStream<tokio_rustls::server::TlsStream<WebSocketByteStream<S>>, I, O>;
-type SplitSinkDataStream<S, M> = SplitSink<DataStreamShort<S, M>, M>;
+type DataStreamShortClient<S, I, O = I> =
+    DataStream<tokio_rustls::client::TlsStream<WebSocketByteStream<S>>, I, O>;
+type SplitSinkDataStreamServer<S, M> = SplitSink<DataStreamShortServer<S, M>, M>;
+type SplitSinkDataStreamClient<S, M> = SplitSink<DataStreamShortClient<S, M>, M>;
 
 #[derive(Clone)]
 pub struct Connection<M = ChatterMessage> {
@@ -50,16 +53,21 @@ pub struct Connection<M = ChatterMessage> {
 pub enum ConnectionSink<M> {
     Accepted {
         #[pin]
-        sink: SplitSinkDataStream<axum::extract::ws::WebSocket, M>,
+        sink: SplitSinkDataStreamServer<axum::extract::ws::WebSocket, M>,
     },
     Connected {
         #[pin]
-        sink: SplitSinkDataStream<tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>, M>,
+        sink: SplitSinkDataStreamClient<
+            tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>,
+            M,
+        >,
     },
 }
 
 impl Connection<ChatterMessage> {
-    pub fn accepted(stream: DataStreamShort<axum::extract::ws::WebSocket, ChatterMessage>) -> Self {
+    pub fn accepted(
+        stream: DataStreamShortServer<axum::extract::ws::WebSocket, ChatterMessage>,
+    ) -> Self {
         let (sink, stream) = stream.split();
         let sink = Arc::new(RwLock::new(ConnectionSink::Accepted { sink }));
         let handle = tokio::spawn(Self::receiver(stream, sink.clone()));
@@ -70,7 +78,7 @@ impl Connection<ChatterMessage> {
     }
 
     pub fn connected(
-        stream: DataStreamShort<
+        stream: DataStreamShortClient<
             tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>,
             ChatterMessage,
         >,
@@ -91,17 +99,20 @@ impl Connection<ChatterMessage> {
         mut stream: St,
         sink: Arc<RwLock<Si>>,
     ) where
-		Si: Sink<ChatterMessage, Error = DataStreamError> + Unpin + Sync + Send,
+        Si: Sink<ChatterMessage, Error = DataStreamError> + Unpin + Sync + Send,
     {
         while let Some(Ok(msg)) = stream.next().await {
             match msg {
-                ChatterMessage::QueueUpdate { length } => todo!(),
-                ChatterMessage::NodeConfigUpdate { priority } => todo!(),
+                ChatterMessage::QueueUpdate { length: _ } => todo!(),
+                ChatterMessage::NodeConfigUpdate { priority: _ } => todo!(),
                 ChatterMessage::GeneralConfigUpdate(_) => todo!(),
                 ChatterMessage::Ping(x) => {
                     let _ = sink.write().await.send(ChatterMessage::Pong(x)).await;
                 }
-                ChatterMessage::Pong(_) => todo!(),
+                ChatterMessage::Pong(x) => {
+                    println!("PONG: {x}");
+                    todo!()
+                },
             }
         }
     }

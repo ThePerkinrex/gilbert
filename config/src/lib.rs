@@ -22,7 +22,9 @@ pub struct Config {
 pub struct NodeConfig {
     pub ca_file: PathBuf,
     pub cert_file: PathBuf,
+    pub key_file: PathBuf,
     pub addr: SocketAddr,
+    pub name: String,
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]

@@ -1,16 +1,16 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use futures_util::{stream::SplitStream, Sink, Stream};
+use futures_util::{Sink, Stream};
 use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::{
     client,
-    rustls::{ClientConfig, ServerConfig, ServerConnection, ServerName},
+    rustls::{ClientConfig, ServerConnection, ServerName},
     server, TlsAcceptor, TlsConnector,
 };
-use tokio_util::codec::{Framed, FramedRead, LengthDelimitedCodec};
+use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 #[pin_project]
 #[derive(Debug)]
