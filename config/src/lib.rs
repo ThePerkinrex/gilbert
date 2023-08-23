@@ -1,9 +1,14 @@
 use diff::Diff;
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 use url_diff::DiffUrl;
+
+#[cfg(feature = "schemars")]
+use schemars::JsonSchema;
+
 mod url_diff;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
@@ -13,12 +18,14 @@ pub struct GeneralConfig {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Config {
     pub general: GeneralConfig,
     pub node: NodeConfig,
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct NodeConfig {
     pub ca_file: PathBuf,
     pub cert_file: PathBuf,
@@ -28,6 +35,7 @@ pub struct NodeConfig {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
@@ -37,6 +45,7 @@ pub struct Node {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
@@ -50,6 +59,7 @@ pub struct TaskInfo {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
 ))]
@@ -60,6 +70,7 @@ pub struct Param {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
 ))]

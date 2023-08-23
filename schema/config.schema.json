@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "type": "object",
+  "required": [
+    "general",
+    "node"
+  ],
+  "properties": {
+    "general": {
+      "$ref": "#/definitions/GeneralConfig"
+    },
+    "node": {
+      "$ref": "#/definitions/NodeConfig"
+    }
+  },
+  "definitions": {
+    "GeneralConfig": {
+      "type": "object",
+      "required": [
+        "nodes",
+        "tasks"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Node"
+          }
+        },
+        "tasks": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/TaskInfo"
+          }
+        }
+      }
+    },
+    "Node": {
+      "type": "object",
+      "required": [
+        "address",
+        "name"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "NodeConfig": {
+      "type": "object",
+      "required": [
+        "addr",
+        "ca_file",
+        "cert_file",
+        "key_file",
+        "name"
+      ],
+      "properties": {
+        "addr": {
+          "type": "string"
+        },
+        "ca_file": {
+          "type": "string"
+        },
+        "cert_file": {
+          "type": "string"
+        },
+        "key_file": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Param": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/ParamType"
+        }
+      }
+    },
+    "ParamType": {
+      "type": "string",
+      "enum": [
+        "number",
+        "string",
+        "object",
+        "array"
+      ]
+    },
+    "TaskInfo": {
+      "type": "object",
+      "required": [
+        "params",
+        "script"
+      ],
+      "properties": {
+        "allowed_nodes": {
+          "default": null,
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "disallowed_nodes": {
+          "default": null,
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Param"
+          }
+        },
+        "script": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

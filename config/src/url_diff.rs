@@ -3,7 +3,11 @@ use std::ops::{Deref, DerefMut};
 use diff::Diff;
 use url::Url;
 
+#[cfg(feature = "schemars")]
+use schemars::JsonSchema;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[serde(transparent)]
 pub struct DiffUrl(Url);
 
