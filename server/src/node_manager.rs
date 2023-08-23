@@ -1,11 +1,18 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, convert::Infallible, sync::Arc};
 
 use chatter_protocol::ChatterMessage;
+use config::{Config, Node};
 use futures_util::{stream::SplitSink, Sink, SinkExt, Stream, StreamExt};
 use pin_project::pin_project;
-use secure_comms::{DataStream, DataStreamError, WebSocketByteStream};
+use secure_comms::{connector, DataStream, DataStreamError, WebSocketByteStream};
+use thiserror::Error;
 use tokio::{net::TcpStream, sync::RwLock, task::JoinHandle};
+use tokio_rustls::rustls::ServerName;
 use tokio_tungstenite::MaybeTlsStream;
+
+use self::event_triggers::{EventHandlers, FromErrors};
+
+pub mod event_triggers;
 
 #[derive(Default)]
 pub struct NodeManager {
@@ -19,12 +26,57 @@ impl NodeManager {
             .map_or(Cow::Owned(NodeStatus::Unknown), Cow::Borrowed)
     }
 
-    pub fn down(&mut self, key: String) {
+    pub fn down<S: Into<Arc<str>>>(&mut self, key: S) {
         self.nodes.insert(key.into(), NodeStatus::Down);
     }
 
-    pub fn up(&mut self, key: String, connection: Connection) {
+    pub fn up<S: Into<Arc<str>>>(&mut self, key: S, connection: Connection) {
         self.nodes.insert(key.into(), NodeStatus::Up(connection));
+    }
+
+    // pub fn connected(&self) -> impl Iterator<Item = Arc<str>> + '_ {
+    //     self.nodes
+    //         .iter()
+    //         .filter(|(_, x)| x.is_up())
+    //         .map(|(x, _)| x.clone())
+    // }
+
+    pub async fn connect<Ev>(
+        &mut self,
+        node: &Node,
+        client_config: Arc<tokio_rustls::rustls::ClientConfig>,
+        config: Arc<Config>,
+        ev: Arc<Ev>,
+    ) where
+        Ev: EventHandlers + Send + Sync + 'static,
+        ConnectionError: FromErrors<Ev>,
+    {
+        let mut url = node.address.clone();
+        let scheme = if url.scheme() == "http" { "ws" } else { "wss" };
+        url.set_scheme(scheme).unwrap();
+
+        match tokio_tungstenite::connect_async(url.join("api/chatter").unwrap()).await {
+            Ok((ws, _)) => {
+                let connection = connector::<_, ChatterMessage, ChatterMessage>(
+                    ws,
+                    ServerName::try_from(node.name.as_str()).unwrap(),
+                    client_config.clone(),
+                )
+                .await
+                .unwrap();
+                println!("Connected to {} @ {}", node.name, node.address);
+                let connection = Connection::connected(connection, config.clone(), ev);
+                connection.send(ChatterMessage::Ping(1)).await.unwrap();
+                self.up(node.name.clone(), connection)
+            }
+            Err(e) => {
+                eprintln!(
+                    "Error connecting to {} @ {}: {}",
+                    node.name, node.address, e
+                );
+                self.down(node.name.clone())
+            }
+        }
     }
 }
 
@@ -36,6 +88,12 @@ pub enum NodeStatus {
     Up(Connection),
 }
 
+impl NodeStatus {
+    const fn is_up(&self) -> bool {
+        matches!(self, Self::Up(_))
+    }
+}
+
 type DataStreamShortServer<S, I, O = I> =
     DataStream<tokio_rustls::server::TlsStream<WebSocketByteStream<S>>, I, O>;
 type DataStreamShortClient<S, I, O = I> =
@@ -43,15 +101,23 @@ type DataStreamShortClient<S, I, O = I> =
 type SplitSinkDataStreamServer<S, M> = SplitSink<DataStreamShortServer<S, M>, M>;
 type SplitSinkDataStreamClient<S, M> = SplitSink<DataStreamShortClient<S, M>, M>;
 
-
 pub struct Connection<M = ChatterMessage> {
     sink: Arc<RwLock<ConnectionSink<M>>>,
-    handle: Arc<JoinHandle<()>>,
+    handle: Arc<JoinHandle<Result<(), ConnectionError>>>,
+    state: Arc<RwLock<ConnState>>,
+}
+
+struct ConnState {
+    priority: u32,
 }
 
 impl<M> Clone for Connection<M> {
     fn clone(&self) -> Self {
-        Self { sink: self.sink.clone(), handle: self.handle.clone() }
+        Self {
+            sink: self.sink.clone(),
+            handle: self.handle.clone(),
+            state: self.state.clone(),
+        }
     }
 }
 
@@ -70,56 +136,121 @@ pub enum ConnectionSink<M> {
     },
 }
 
+#[derive(Debug, Error)]
+pub enum ConnectionError {
+    #[error("Configs dont match")]
+    ConfigsDontMatch,
+    #[error(transparent)]
+    DataStream(#[from] DataStreamError),
+}
+
+impl From<Infallible> for ConnectionError {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
+
 impl Connection<ChatterMessage> {
-    pub fn accepted(
+    pub fn accepted<Ev>(
         stream: DataStreamShortServer<axum::extract::ws::WebSocket, ChatterMessage>,
-    ) -> Self {
-        let (sink, stream) = stream.split();
+        config: Arc<Config>,
+        ev: Arc<Ev>,
+    ) -> Self
+    where
+        Ev: EventHandlers + Send + Sync + 'static,
+        ConnectionError: FromErrors<Ev>,
+    {
+        let (mut sink, stream) = stream.split();
+        // sink.send(ChatterMessage::Hello { config: config.general.clone(), priority: config.node.priority, connected: vec![] }).await.unwrap();
         let sink = Arc::new(RwLock::new(ConnectionSink::Accepted { sink }));
-        let handle = tokio::spawn(Self::receiver(stream, sink.clone()));
+        let state = Arc::new(RwLock::new(ConnState { priority: 0 }));
+        let handle = tokio::spawn(Self::receiver(
+            stream,
+            sink.clone(),
+            config,
+            ev,
+            state.clone(),
+        ));
         Self {
             sink,
             handle: Arc::new(handle),
+            state,
         }
     }
 
-    pub fn connected(
+    pub fn connected<Ev>(
         stream: DataStreamShortClient<
             tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>,
             ChatterMessage,
         >,
-    ) -> Self {
+        config: Arc<Config>,
+        ev: Arc<Ev>,
+    ) -> Self
+    where
+        Ev: EventHandlers + Send + Sync + 'static,
+        ConnectionError: FromErrors<Ev>,
+    {
         let (sink, stream) = stream.split();
         let sink = Arc::new(RwLock::new(ConnectionSink::Connected { sink }));
-        let handle = tokio::spawn(Self::receiver(stream, sink.clone()));
+        let state = Arc::new(RwLock::new(ConnState { priority: 0 }));
+        let handle = tokio::spawn(Self::receiver(
+            stream,
+            sink.clone(),
+            config,
+            ev,
+            state.clone(),
+        ));
         Self {
             sink,
             handle: Arc::new(handle),
+            state,
         }
     }
 
     async fn receiver<
         St: Stream<Item = Result<ChatterMessage, DataStreamError>> + Send + Unpin,
         Si,
+        Ev,
     >(
         mut stream: St,
         sink: Arc<RwLock<Si>>,
-    ) where
+        config: Arc<Config>,
+        ev: Arc<Ev>,
+        state: Arc<RwLock<ConnState>>,
+    ) -> Result<(), ConnectionError>
+    where
         Si: Sink<ChatterMessage, Error = DataStreamError> + Unpin + Sync + Send,
+        Ev: EventHandlers + Send + Sync,
+        ConnectionError: FromErrors<Ev>,
     {
-        while let Some(Ok(msg)) = stream.next().await {
-            match msg {
-                ChatterMessage::QueueUpdate { length: _ } => todo!(),
-                ChatterMessage::NodeConfigUpdate { priority: _ } => todo!(),
-                ChatterMessage::GeneralConfigUpdate(_) => todo!(),
-                ChatterMessage::Ping(x) => {
-                    let _ = sink.write().await.send(ChatterMessage::Pong(x)).await;
-                }
-                ChatterMessage::Pong(x) => {
-                    println!("PONG: {x}");
-                    todo!()
+        loop {
+            match stream.next().await {
+                None => break Ok(()),
+                Some(Ok(msg)) => match msg {
+                    ChatterMessage::QueueUpdate { length: _ } => todo!(),
+                    ChatterMessage::NodeConfigUpdate { priority: _ } => todo!(),
+                    ChatterMessage::GeneralConfigUpdate(_) => todo!(),
+                    ChatterMessage::Ping(x) => {
+                        let _ = sink.write().await.send(ChatterMessage::Pong(x)).await;
+                    }
+                    ChatterMessage::Pong(x) => {
+                        ev.clone().pong(x).await?;
+                    }
+                    ChatterMessage::Hello {
+                        config: c,
+                        priority,
+                        connected,
+                    } => {
+                        if c != config.general {
+                            break Err(ConnectionError::ConfigsDontMatch);
+                        }
+                        state.write().await.priority = priority;
+                        ev.clone()
+                            .attempt_connect(connected.iter().map(String::as_str))
+                            .await?;
+                    }
                 },
-                ChatterMessage::Hello { config, priority, connected } => todo!(),
+                Some(Err(e)) => break Err(e.into()),
             }
         }
     }

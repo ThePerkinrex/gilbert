@@ -7,7 +7,7 @@ use schemars::JsonSchema;
 
 mod url_diff;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
@@ -17,14 +17,14 @@ pub struct GeneralConfig {
     pub tasks: HashMap<String, TaskInfo>,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct Config {
     pub general: GeneralConfig,
     pub node: NodeConfig,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 pub struct NodeConfig {
     pub ca_file: PathBuf,
@@ -33,10 +33,10 @@ pub struct NodeConfig {
     pub addr: SocketAddr,
     pub name: String,
     #[serde(default)]
-    pub priority: u32
+    pub priority: u32,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
@@ -46,7 +46,7 @@ pub struct Node {
     pub name: String,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
@@ -60,7 +60,7 @@ pub struct TaskInfo {
     pub script: PathBuf,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]
@@ -71,7 +71,7 @@ pub struct Param {
     ty: ParamType,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[diff(attr(
     #[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, Clone)]

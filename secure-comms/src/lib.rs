@@ -86,14 +86,11 @@ impl Acceptor {
         I: Send,
         O: Send,
     {
-        let stream = self
-            .tls
-            .accept(WebSocketByteStream { socket: ws })
-            .await?;
+        let stream = self.tls.accept(WebSocketByteStream { socket: ws }).await?;
         let mut i = 0;
         while i < 20 && stream.get_ref().1.server_name().is_none() {
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-            i+=1;
+            i += 1;
         }
         let name = stream.get_ref().1.server_name().map(ToString::to_string);
         let framed = Framed::new(stream, codec());
