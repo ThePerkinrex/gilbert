@@ -32,6 +32,8 @@ pub struct NodeConfig {
     pub key_file: PathBuf,
     pub addr: SocketAddr,
     pub name: String,
+    #[serde(default)]
+    pub priority: u32
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq)]

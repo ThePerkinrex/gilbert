@@ -43,10 +43,16 @@ type DataStreamShortClient<S, I, O = I> =
 type SplitSinkDataStreamServer<S, M> = SplitSink<DataStreamShortServer<S, M>, M>;
 type SplitSinkDataStreamClient<S, M> = SplitSink<DataStreamShortClient<S, M>, M>;
 
-#[derive(Clone)]
+
 pub struct Connection<M = ChatterMessage> {
     sink: Arc<RwLock<ConnectionSink<M>>>,
     handle: Arc<JoinHandle<()>>,
+}
+
+impl<M> Clone for Connection<M> {
+    fn clone(&self) -> Self {
+        Self { sink: self.sink.clone(), handle: self.handle.clone() }
+    }
 }
 
 #[pin_project(project = ConnectionProj)]
@@ -113,6 +119,7 @@ impl Connection<ChatterMessage> {
                     println!("PONG: {x}");
                     todo!()
                 },
+                ChatterMessage::Hello { config, priority, connected } => todo!(),
             }
         }
     }

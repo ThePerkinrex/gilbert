@@ -76,6 +76,12 @@
         },
         "name": {
           "type": "string"
+        },
+        "priority": {
+          "default": 0,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
         }
       }
     },
