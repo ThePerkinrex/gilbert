@@ -1,0 +1,16 @@
+{
+	"general": {
+		"nodes": [
+			{"address": "http://localhost:8080", "name": "server1"},
+			{"address": "http://localhost:8081", "name": "server2"}
+		],
+		"tasks": {}
+	},
+	"node": {
+		"ca_file": "server/examples/simple/certs/ca.crt",
+		"cert_file": "server/examples/simple/certs/server2.crt",
+		"key_file": "server/examples/simple/certs/server2.key",
+		"addr": "127.0.0.1:8081",
+		"name": "server2"
+	}
+}

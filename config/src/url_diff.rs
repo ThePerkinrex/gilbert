@@ -7,6 +7,12 @@ use url::Url;
 #[serde(transparent)]
 pub struct DiffUrl(Url);
 
+impl std::fmt::Display for DiffUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 impl Deref for DiffUrl {
     type Target = Url;
 

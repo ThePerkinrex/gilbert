@@ -86,21 +86,23 @@ impl Acceptor {
         I: Send,
         O: Send,
     {
-        let (tx, rx) = tokio::sync::oneshot::channel();
         let stream = self
             .tls
-            .accept_with(WebSocketByteStream { socket: ws }, |conn| {
-                let _ = tx.send(conn.server_name().map(ToString::to_string));
-            })
+            .accept(WebSocketByteStream { socket: ws })
             .await?;
+        let mut i = 0;
+        while i < 20 && stream.get_ref().1.server_name().is_none() {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            i+=1;
+        }
+        let name = stream.get_ref().1.server_name().map(ToString::to_string);
         let framed = Framed::new(stream, codec());
         Ok((
             DataStream {
                 inner: framed,
                 msg: PhantomData,
             },
-            rx.await
-                .map_err(|err| std::io::Error::new(std::io::ErrorKind::BrokenPipe, err))?,
+            name,
         ))
     }
 }

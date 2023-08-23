@@ -62,11 +62,14 @@ async fn chatter(State(state): State<AppState>, ws: WebSocketUpgrade) -> Respons
         tokio::spawn(async move {
             let (s, name) = state.acceptor.accept_with_server_name(ws).await.unwrap();
             if let Some(name) = name {
+                println!("Connected to {}", name);
                 state
                     .node_manager
                     .write()
                     .await
                     .up(name, Connection::accepted(s))
+            }else{
+                eprintln!("NO SNI PROVIDED");
             }
         });
     })
@@ -90,17 +93,27 @@ pub async fn start(config: Config) {
         let scheme = if url.scheme() == "http" { "ws" } else { "wss" };
         url.set_scheme(scheme).unwrap();
 
-        let (ws, _) = tokio_tungstenite::connect_async(url.join("api/chatter").unwrap())
-            .await
-            .unwrap();
-        let connection = connector::<_, ChatterMessage, ChatterMessage>(
-            ws,
-            ServerName::try_from(node.name.as_str()).unwrap(),
-            client_config.clone(),
-        )
-        .await
-        .unwrap();
-        node_manager.up(node.name.clone(), Connection::connected(connection))
+        match tokio_tungstenite::connect_async(url.join("api/chatter").unwrap())
+        .await {
+            Ok((ws, _)) => {
+                let connection = connector::<_, ChatterMessage, ChatterMessage>(
+                    ws,
+                    ServerName::try_from(node.name.as_str()).unwrap(),
+                    client_config.clone(),
+                )
+                .await
+                .unwrap();
+                println!("Connected to {} @ {}", node.name, node.address);
+                let connection = Connection::connected(connection);
+                connection.send(ChatterMessage::Ping(1)).await.unwrap();
+                node_manager.up(node.name.clone(), connection)
+            }
+            Err(e) => {
+                eprintln!("Error connecting to {} @ {}: {}", node.name, node.address, e);
+                node_manager.down(node.name.clone())
+            }
+        }
+        
     }
 
     let server_config = server_config(&config, &cache).unwrap();
