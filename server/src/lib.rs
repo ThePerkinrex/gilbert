@@ -18,6 +18,7 @@ use tokio::sync::RwLock;
 use tokio_rustls::rustls::{
     server::AllowAnyAuthenticatedClient, ClientConfig, RootCertStore, ServerConfig,
 };
+use tracing::{error, info};
 
 mod cache;
 mod node_manager;
@@ -70,7 +71,7 @@ where
         tokio::spawn(async move {
             let (s, name) = state.acceptor.accept_with_server_name(ws).await.unwrap();
             if let Some(name) = name {
-                println!("Connected to {}", name);
+                info!("Connected to {}", name);
                 let connection =
                     Connection::accepted(s, state.config.clone(), state.ev.clone(), name.clone());
                 let connected = state
@@ -88,7 +89,7 @@ where
                 connection.send(msg).await.unwrap();
                 state.node_manager.write().await.up(name, connection)
             } else {
-                eprintln!("NO SNI PROVIDED");
+                error!("NO NAME IN CERTIFICATE PROVIDED");
             }
         });
     })
@@ -125,6 +126,7 @@ pub async fn start(config: Config) {
     let server_config = server_config(&config, &cache).unwrap();
 
     // run it with hyper on localhost:3000
+    info!("Server started at {}", config.node.addr);
     axum::Server::bind(&config.node.addr)
         .serve(
             app.with_state(AppState {

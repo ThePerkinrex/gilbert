@@ -9,6 +9,7 @@ use thiserror::Error;
 use tokio::{net::TcpStream, sync::RwLock, task::JoinHandle};
 use tokio_rustls::rustls::ServerName;
 use tokio_tungstenite::MaybeTlsStream;
+use tracing::{debug, error, info};
 
 use self::event_triggers::{EventHandlers, FromErrors};
 
@@ -64,7 +65,7 @@ impl NodeManager {
                 )
                 .await
                 .unwrap();
-                println!("Connected to {} @ {}", node.name, node.address);
+                info!("Connected to {} @ {}", node.name, node.address);
                 let connection =
                     Connection::connected(connection, config.clone(), ev, node.name.clone());
                 let msg = ChatterMessage::Hello {
@@ -76,7 +77,7 @@ impl NodeManager {
                 self.up(node.name.clone(), connection)
             }
             Err(e) => {
-                eprintln!(
+                error!(
                     "Error connecting to {} @ {}: {}",
                     node.name, node.address, e
                 );
@@ -255,7 +256,7 @@ impl Connection<ChatterMessage> {
                         priority,
                         connected,
                     } => {
-                        println!("Hello from {}", name.as_ref());
+                        debug!(name = name.as_ref(), "Hello");
                         // dbg!(&c);
                         // dbg!(&config.general);
                         // dbg!(c == config.general);
@@ -272,7 +273,7 @@ impl Connection<ChatterMessage> {
             }
         };
         if let Err(e) = &res {
-            eprintln!("[{}] Connection error: {e}", name.as_ref());
+            error!(name = name.as_ref(), "Connection error: {e}");
         }
         res
     }
