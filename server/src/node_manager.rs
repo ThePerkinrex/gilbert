@@ -34,12 +34,12 @@ impl NodeManager {
         self.nodes.insert(key.into(), NodeStatus::Up(connection));
     }
 
-    // pub fn connected(&self) -> impl Iterator<Item = Arc<str>> + '_ {
-    //     self.nodes
-    //         .iter()
-    //         .filter(|(_, x)| x.is_up())
-    //         .map(|(x, _)| x.clone())
-    // }
+    pub fn connected(&self) -> impl Iterator<Item = Arc<str>> + '_ {
+        self.nodes
+            .iter()
+            .filter(|(_, x)| x.is_up())
+            .map(|(x, _)| x.clone())
+    }
 
     pub async fn connect<Ev>(
         &mut self,
@@ -65,8 +65,14 @@ impl NodeManager {
                 .await
                 .unwrap();
                 println!("Connected to {} @ {}", node.name, node.address);
-                let connection = Connection::connected(connection, config.clone(), ev);
-                connection.send(ChatterMessage::Ping(1)).await.unwrap();
+                let connection =
+                    Connection::connected(connection, config.clone(), ev, node.name.clone());
+                let msg = ChatterMessage::Hello {
+                    config: config.general.clone(),
+                    priority: config.node.priority,
+                    connected: self.connected().map(|s| s.to_string()).collect(),
+                };
+                connection.send(msg).await.unwrap();
                 self.up(node.name.clone(), connection)
             }
             Err(e) => {
@@ -151,17 +157,18 @@ impl From<Infallible> for ConnectionError {
 }
 
 impl Connection<ChatterMessage> {
-    pub fn accepted<Ev>(
+    pub fn accepted<Ev, Name>(
         stream: DataStreamShortServer<axum::extract::ws::WebSocket, ChatterMessage>,
         config: Arc<Config>,
         ev: Arc<Ev>,
+        name: Name,
     ) -> Self
     where
         Ev: EventHandlers + Send + Sync + 'static,
         ConnectionError: FromErrors<Ev>,
+        Name: AsRef<str> + Send + Sync + 'static,
     {
-        let (mut sink, stream) = stream.split();
-        // sink.send(ChatterMessage::Hello { config: config.general.clone(), priority: config.node.priority, connected: vec![] }).await.unwrap();
+        let (sink, stream) = stream.split();
         let sink = Arc::new(RwLock::new(ConnectionSink::Accepted { sink }));
         let state = Arc::new(RwLock::new(ConnState { priority: 0 }));
         let handle = tokio::spawn(Self::receiver(
@@ -170,6 +177,7 @@ impl Connection<ChatterMessage> {
             config,
             ev,
             state.clone(),
+            name,
         ));
         Self {
             sink,
@@ -178,17 +186,19 @@ impl Connection<ChatterMessage> {
         }
     }
 
-    pub fn connected<Ev>(
+    pub fn connected<Ev, Name>(
         stream: DataStreamShortClient<
             tokio_tungstenite::WebSocketStream<MaybeTlsStream<TcpStream>>,
             ChatterMessage,
         >,
         config: Arc<Config>,
         ev: Arc<Ev>,
+        name: Name,
     ) -> Self
     where
         Ev: EventHandlers + Send + Sync + 'static,
         ConnectionError: FromErrors<Ev>,
+        Name: AsRef<str> + Send + Sync + 'static,
     {
         let (sink, stream) = stream.split();
         let sink = Arc::new(RwLock::new(ConnectionSink::Connected { sink }));
@@ -199,6 +209,7 @@ impl Connection<ChatterMessage> {
             config,
             ev,
             state.clone(),
+            name,
         ));
         Self {
             sink,
@@ -211,19 +222,22 @@ impl Connection<ChatterMessage> {
         St: Stream<Item = Result<ChatterMessage, DataStreamError>> + Send + Unpin,
         Si,
         Ev,
+        Name,
     >(
         mut stream: St,
         sink: Arc<RwLock<Si>>,
         config: Arc<Config>,
         ev: Arc<Ev>,
         state: Arc<RwLock<ConnState>>,
+        name: Name,
     ) -> Result<(), ConnectionError>
     where
         Si: Sink<ChatterMessage, Error = DataStreamError> + Unpin + Sync + Send,
         Ev: EventHandlers + Send + Sync,
         ConnectionError: FromErrors<Ev>,
+        Name: AsRef<str> + Send + Sync,
     {
-        loop {
+        let res = loop {
             match stream.next().await {
                 None => break Ok(()),
                 Some(Ok(msg)) => match msg {
@@ -241,6 +255,10 @@ impl Connection<ChatterMessage> {
                         priority,
                         connected,
                     } => {
+                        println!("Hello from {}", name.as_ref());
+                        // dbg!(&c);
+                        // dbg!(&config.general);
+                        // dbg!(c == config.general);
                         if c != config.general {
                             break Err(ConnectionError::ConfigsDontMatch);
                         }
@@ -252,7 +270,11 @@ impl Connection<ChatterMessage> {
                 },
                 Some(Err(e)) => break Err(e.into()),
             }
+        };
+        if let Err(e) = &res {
+            eprintln!("[{}] Connection error: {e}", name.as_ref());
         }
+        res
     }
 
     pub async fn send(&self, msg: ChatterMessage) -> Result<(), DataStreamError> {

@@ -2,7 +2,7 @@
 	"$schema": "https://raw.githubusercontent.com/ThePerkinrex/jenkins-replacement/main/schema/config.schema.json",
 	"general": {
 		"nodes": [
-			{"address": "http://localhost:8080", "name": "server1"},
+			{"address": "http://localhost:8082", "name": "server1"},
 			{"address": "http://localhost:8081", "name": "server2"}
 		],
 		"tasks": {}

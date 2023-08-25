@@ -7,9 +7,10 @@ use axum::{
     Router,
 };
 use cache::{CacheError, CertificatesCache};
+use chatter_protocol::ChatterMessage;
 use config::Config;
 use node_manager::{
-    event_triggers::{AttemptConnectHandler, EventHandlers, EventHandlersImpl, PongHandler, FromErrors},
+    event_triggers::{EventHandlers, EventHandlersImpl, FromErrors},
     Connection, ConnectionError, NodeManager,
 };
 use secure_comms::Acceptor;
@@ -17,8 +18,6 @@ use tokio::sync::RwLock;
 use tokio_rustls::rustls::{
     server::AllowAnyAuthenticatedClient, ClientConfig, RootCertStore, ServerConfig,
 };
-
-use crate::node_manager::event_triggers::MockEv;
 
 mod cache;
 mod node_manager;
@@ -72,10 +71,22 @@ where
             let (s, name) = state.acceptor.accept_with_server_name(ws).await.unwrap();
             if let Some(name) = name {
                 println!("Connected to {}", name);
-                state.node_manager.write().await.up(
-                    name,
-                    Connection::accepted(s, state.config.clone(), state.ev.clone()),
-                )
+                let connection =
+                    Connection::accepted(s, state.config.clone(), state.ev.clone(), name.clone());
+                let connected = state
+                    .node_manager
+                    .read()
+                    .await
+                    .connected()
+                    .map(|s| s.to_string())
+                    .collect();
+                let msg = ChatterMessage::Hello {
+                    config: state.config.general.clone(),
+                    priority: state.config.node.priority,
+                    connected,
+                };
+                connection.send(msg).await.unwrap();
+                state.node_manager.write().await.up(name, connection)
             } else {
                 eprintln!("NO SNI PROVIDED");
             }

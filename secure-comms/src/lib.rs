@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, borrow::Cow};
 
 use futures_util::{Sink, Stream};
 use pin_project::pin_project;
@@ -77,10 +77,10 @@ impl Acceptor {
     pub async fn accept_with_server_name<W: Send, I, O>(
         &self,
         ws: W,
-    ) -> std::io::Result<(
+    ) -> Result<(
         DataStream<server::TlsStream<WebSocketByteStream<W>>, I, O>,
         Option<String>,
-    )>
+    ), AcceptError>
     where
         WebSocketByteStream<W>: AsyncRead + AsyncWrite + Unpin,
         I: Send,
@@ -88,11 +88,21 @@ impl Acceptor {
     {
         let stream = self.tls.accept(WebSocketByteStream { socket: ws }).await?;
         let mut i = 0;
-        while i < 20 && stream.get_ref().1.server_name().is_none() {
+        while i < 20 && stream.get_ref().1.peer_certificates().is_none() {
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             i += 1;
         }
-        let name = stream.get_ref().1.server_name().map(ToString::to_string);
+        let base_cert = &stream.get_ref().1.peer_certificates().and_then(|certs| certs.get(0)).ok_or(AcceptError::NoPeerCerts)?;
+        let (_, parsed) = x509_parser::parse_x509_certificate(&base_cert.0).map_err(|e| match e {
+            nom::Err::Incomplete(_) => InvalidCertError::DataNeeded,
+            nom::Err::Error(e) | nom::Err::Failure(e) => InvalidCertError::X509(e),
+        })?;
+        let names = parsed
+            .subject_alternative_name()
+            .unwrap().map(|san| Cow::Borrowed(san.value.general_names.as_slice()))
+            // .and_then::<GeneralName<'_>, _>(|san| san.value.general_names.get(0).cloned())
+            .unwrap_or_else(|| Cow::Owned(vec![x509_parser::prelude::GeneralName::DirectoryName(parsed.subject().clone())]));
+        let name = names.get(0).map(ToString::to_string);
         let framed = Framed::new(stream, codec());
         Ok((
             DataStream {
@@ -102,6 +112,29 @@ impl Acceptor {
             name,
         ))
     }
+}
+
+#[derive(Debug, Error)]
+pub enum AcceptError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("No peer certificates")]
+    NoPeerCerts,
+    #[error("Invalid certificate: {0}")]
+    InvalidCert(
+        #[source]
+        #[from]
+        InvalidCertError),
+    #[error("Invalid SubjectAltNames extension")]
+    SubjectAltNameExtError
+}
+
+#[derive(Debug, Error)]
+pub enum InvalidCertError {
+    #[error("Data needed")]
+    DataNeeded,
+    #[error(transparent)]
+    X509(x509_parser::error::X509Error)
 }
 
 pub async fn connector<W: Send, I, O>(
