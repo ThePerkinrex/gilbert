@@ -1,3 +1,3 @@
 [workspace]
-members = ["task-balancer", "secure-comms", "chatter-protocol", "config", "runner", "server", "gen-schema", "frontend"]
+members = ["task-balancer", "secure-comms", "chatter-protocol", "config", "runner", "server", "gen-schema", "frontend", "plugin-manager", "alfred-plugin-api", "alfred-plugin"]
 resolver = "2"

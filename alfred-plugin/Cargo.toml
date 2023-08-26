@@ -1,0 +1,22 @@
+[package]
+name = "alfred-plugin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+alfred-plugin-api = {path = "../alfred-plugin-api"}
+serde = {version="^1.0.188", features=["derive"]}
+semver = {version="^1.0.18", features=["serde"]}
+serde_json = "^1.0.105"
+tokio = {version = "^1.32.0", features=["io-std"]}
+tokio-util = {version = "^0.7.8", features = ["codec"]}
+async-trait = "^0.1.73"
+futures-util = {version ="^0.3.28", features=["sink"]}
+thiserror = "^1.0.47"
+tracing = "^0.1.37"
+tracing-subscriber = "^0.3.17"
+
+[dev-dependencies]
+tokio = {version = "^1.32.0", features=["macros", "rt-multi-thread"]}

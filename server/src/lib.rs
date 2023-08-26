@@ -20,6 +20,7 @@ use tokio_rustls::rustls::{
 };
 use tracing::{error, info};
 
+mod api;
 mod cache;
 mod node_manager;
 
@@ -54,7 +55,6 @@ fn client_config(
     Ok(Arc::new(config))
 }
 
-#[derive(Clone)]
 struct AppState<Ev> {
     acceptor: Arc<Acceptor>,
     node_manager: Arc<RwLock<NodeManager>>,
@@ -62,42 +62,20 @@ struct AppState<Ev> {
     ev: Arc<Ev>,
 }
 
-async fn chatter<Ev>(State(state): State<AppState<Ev>>, ws: WebSocketUpgrade) -> Response
-where
-    Ev: EventHandlers + Send + Sync + 'static,
-    ConnectionError: FromErrors<Ev>,
-{
-    ws.on_upgrade(|ws| async move {
-        tokio::spawn(async move {
-            let (s, name) = state.acceptor.accept_with_server_name(ws).await.unwrap();
-            if let Some(name) = name {
-                info!("Connected to {}", name);
-                let connection =
-                    Connection::accepted(s, state.config.clone(), state.ev.clone(), name.clone());
-                let connected = state
-                    .node_manager
-                    .read()
-                    .await
-                    .connected()
-                    .map(|s| s.to_string())
-                    .collect();
-                let msg = ChatterMessage::Hello {
-                    config: state.config.general.clone(),
-                    priority: state.config.node.priority,
-                    connected,
-                };
-                connection.send(msg).await.unwrap();
-                state.node_manager.write().await.up(name, connection)
-            } else {
-                error!("NO NAME IN CERTIFICATE PROVIDED");
-            }
-        });
-    })
+impl<Ev> Clone for AppState<Ev> {
+    fn clone(&self) -> Self {
+        Self {
+            acceptor: self.acceptor.clone(),
+            node_manager: self.node_manager.clone(),
+            config: self.config.clone(),
+            ev: self.ev.clone(),
+        }
+    }
 }
 
 pub async fn start(config: Config) {
     let config = Arc::new(config);
-    let api = Router::new().route("/chatter", get(chatter));
+    let api = api::api();
     let cache = CertificatesCache::default();
     let client_config = client_config(&config, &cache).unwrap();
     let app = Router::new()
