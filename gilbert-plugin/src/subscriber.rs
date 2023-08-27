@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alfred_plugin_api::log::LogMessage;
+use gilbert_plugin_api::log::LogMessage;
 use tracing::{Subscriber, field::Visit};
 use tracing_subscriber::Layer;
 
@@ -67,11 +67,11 @@ impl<T: Sender<LogMessage> + 'static, S: Subscriber> Layer<S> for LoggingLayer<T
 		event.record(&mut fields);
         self.sender.send(LogMessage {
             level: match *metadata.level() {
-				tracing::Level::TRACE => alfred_plugin_api::log::Level::Trace,
-				tracing::Level::DEBUG => alfred_plugin_api::log::Level::Debug,
-				tracing::Level::INFO => alfred_plugin_api::log::Level::Info,
-				tracing::Level::WARN => alfred_plugin_api::log::Level::Warn,
-				tracing::Level::ERROR => alfred_plugin_api::log::Level::Error,
+				tracing::Level::TRACE => gilbert_plugin_api::log::Level::Trace,
+				tracing::Level::DEBUG => gilbert_plugin_api::log::Level::Debug,
+				tracing::Level::INFO => gilbert_plugin_api::log::Level::Info,
+				tracing::Level::WARN => gilbert_plugin_api::log::Level::Warn,
+				tracing::Level::ERROR => gilbert_plugin_api::log::Level::Error,
 			},
             name: metadata.name().into(),
             target: metadata.target().into(),

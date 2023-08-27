@@ -13,7 +13,7 @@ pub const PROTO_VERSION: Version = Version::new(0, 1, 0);
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum AlfredRequest {
     Init {
-        alfred_version: Version,
+        gilbert_version: Version,
         protocol_version: Version,
         config: GenericPluginConfig,
     },

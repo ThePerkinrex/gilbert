@@ -1,4 +1,4 @@
-use alfred_plugin::{init_plugin_fn, Plugin};
+use gilbert_plugin::{init_plugin_fn, Plugin};
 use semver::Version;
 
 #[derive(Debug, serde::Deserialize)]
