@@ -1,23 +1,26 @@
-use std::{process::exit, convert::Infallible};
-use std::future::Future;
-
-use gilbert_plugin_api::AlfredRequest;
-// use alfred_plugin_api::{log::LogMessage, PluginResponse};
-use futures_util::{Sink, Stream, StreamExt};
+use gilbert_plugin_api::log::LogMessage;
+use futures_util::{ Sink, SinkExt, };
+use plugin::init_plugin_fn_internal;
+use runner::init_runner_fn_internal;
 use semver::Version;
 use serde::Deserialize;
 use subscriber::LoggingLayer;
 use thiserror::Error;
 use tokio::io::{stdin, stdout};
 use tokio::select;
-use tokio::sync::Notify;
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec, LinesCodecError};
-use tracing::{error, info};
+use tracing::error;
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 
 mod subscriber;
+mod sender;
+pub mod plugin;
+pub mod runner;
 
-pub trait Plugin {}
+pub use plugin::Plugin;
+pub use runner::Runner;
 
 #[derive(Debug, Error)]
 enum RunError {
@@ -26,64 +29,130 @@ enum RunError {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error("Unable to parse init message: {0}")]
-    UnableToParseInit(#[source] serde_json::Error)
+    UnableToParseInit(#[source] serde_json::Error),
+    #[error("init isnt first message")]
+    InitIsntFirstMessage,
+    #[error(
+        "Protocol version incompatible: host has {host} and our current build is {implemented}"
+    )]
+    VersionIncompatible { implemented: Version, host: Version },
 }
 
-async fn init_plugin_fn_internal<'a, Config, Init, P, E1, E2, FR, FW, Exit, FutExit>(
-    version: Version,
-    init: Init,
-    read: &mut FR,
-    write: &mut FW,
-    exit: Exit,
-    exit_shot: tokio::sync::oneshot::Receiver<Notify>
+enum PrinterState {
+    Normal,
+    Finishing,
+    Finished,
+}
+
+async fn print_message<T: serde::Serialize + Sync, FW: Sink<String, Error = E> + Send + Unpin, E>(
+    sink: &mut FW,
+    msg: &T,
 ) -> Result<(), RunError>
 where
-    Config: Deserialize<'a>,
-    Init: FnOnce(Config) -> P + Send,
-    P: Plugin,
-    RunError: From<E1> + From<E2>,
-    FR: Stream<Item = Result<String, E1>> + Unpin + Send,
-    FW: Sink<String, Error = E2> + Send,
-    E1: Send,
-    E2: Send,
-    Exit: FnOnce(i32) -> FutExit,
-    FutExit: Future<Output = Infallible>
+    RunError: From<E>,
 {
-    let Some(init) = read.next().await else {
-        return Ok(());
-    };
-    let init = init?;
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-    tracing_subscriber::registry().with(LoggingLayer::new(tx)).init();
-
-    tokio::spawn(async move {
-        while let Some(s) = rx.recv().await {
-            println!("{}", serde_json::to_string(&s).unwrap());
-        }
-    });
-    let init = serde_json::from_str::<AlfredRequest>(&init).map_err(RunError::UnableToParseInit)?;
-    let AlfredRequest::Init { gilbert_version: alfred_version, protocol_version, config } = init else {
-        error!("init message isn't first message");
-        exit(2).await;
-        unreachable!()
-    };
-    Ok(())
+    sink.send(serde_json::to_string(msg)?)
+        .await
+        .map_err(Into::into)
 }
 
-pub async fn init_plugin_fn<'a, Config, Init, P>(version: Version, init: Init) -> !
+struct Exit {
+    tx_state: UnboundedSender<PrinterState>,
+    handle: JoinHandle<Result<(), RunError>>
+}
+
+impl Exit {
+    pub async fn exit(self, code: i32) -> ! {
+        let _ = self.tx_state.send(PrinterState::Finishing);
+        let _ = self.handle.await;
+        std::process::exit(code);
+    }
+}
+
+async fn load_plugin<T>() -> (
+    tokio::sync::mpsc::UnboundedSender<T>,
+    Exit,
+    FramedRead<tokio::io::Stdin, LinesCodec>,
+)
 where
-    Config: Deserialize<'a>,
+    T: serde::Serialize + From<LogMessage> + Send + Sync + 'static,
+{
+    let codec = LinesCodec::new();
+    let frame_read = FramedRead::new(stdin(), codec.clone());
+    let mut frame_write = FramedWrite::new(stdout(), codec);
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx_state, mut rx_state) = tokio::sync::mpsc::unbounded_channel();
+    tracing_subscriber::registry()
+        .with(LoggingLayer::new(tx.clone()))
+        .init();
+
+    let s = tokio::spawn(async move {
+        let mut state = PrinterState::Normal;
+        loop {
+            #[allow(clippy::redundant_pub_crate)]
+            match state {
+                PrinterState::Normal => select! {
+                    Some(resp) = rx.recv() => print_message(&mut frame_write, &resp).await?,
+                    Some(new_state) = rx_state.recv() => {state = new_state;}
+                    else => break
+                },
+                PrinterState::Finishing => match rx.try_recv() {
+                    Ok(resp) => print_message(&mut frame_write, &resp).await?,
+                    Err(_) => state = PrinterState::Finished,
+                },
+                PrinterState::Finished => break,
+            };
+        }
+        Ok::<(), RunError>(())
+    });
+
+    (tx, Exit {tx_state, handle: s}, frame_read)
+}
+
+pub async fn init_plugin_fn<Config, Init, P>(version: Version, init: Init) -> !
+where
+    Config: for<'a> Deserialize<'a>,
     Init: FnOnce(Config) -> P + Send,
     P: Plugin,
 {
-    let codec = LinesCodec::new();
-    let mut frame_read = FramedRead::new(stdin(), codec.clone());
-    let mut frame_write = FramedWrite::new(stdout(), codec);
-    match init_plugin_fn_internal(version, init, &mut frame_read, &mut frame_write).await {
-        Ok(()) => exit(0),
+    let (tx, exit, mut frame_read) = load_plugin().await;
+    match init_plugin_fn_internal(version, init, &mut frame_read, tx).await {
+        Ok(()) => exit.exit(0).await,
         Err(e) => {
-            error!("Plugin error: {e}");
-            exit(1)
+            error!("{e}");
+            exit.exit(1).await
         }
     }
+}
+
+pub async fn init_plugin<Config, P>(version: Version) -> !
+where
+    Config: for<'a> Deserialize<'a>,
+    P: Plugin + From<Config>,
+{
+    init_plugin_fn::<Config, _, P>(version, Into::into).await
+}
+
+pub async fn init_runner_fn<Config, Init, P>(version: Version, init: Init) -> !
+where
+    Config: for<'a> Deserialize<'a>,
+    Init: FnOnce(Config) -> P + Send,
+    P: Runner,
+{
+    let (tx, exit, mut frame_read) = load_plugin().await;
+    match init_runner_fn_internal(version, init, &mut frame_read, tx).await {
+        Ok(()) => exit.exit(0).await,
+        Err(e) => {
+            error!("{e}");
+            exit.exit(1).await
+        }
+    }
+}
+
+pub async fn init_runner<Config, P>(version: Version) -> !
+where
+    Config: for<'a> Deserialize<'a>,
+    P: Runner + From<Config>,
+{
+    init_runner_fn::<Config, _, P>(version, Into::into).await
 }

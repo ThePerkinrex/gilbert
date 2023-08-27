@@ -10,5 +10,5 @@ impl Plugin for P {}
 
 #[tokio::main]
 async fn main() {
-	init_plugin_fn(Version::new(0, 1, 0), |_: Config| P).await
+    init_plugin_fn(Version::new(0, 1, 0), |_: Config| P).await
 }

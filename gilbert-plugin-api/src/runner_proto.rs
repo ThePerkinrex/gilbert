@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::log::LogMessage;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub enum AlfredRunnerRequest {
+pub enum GilbertRunnerRequest {
     RunTask {
         job: PathBuf,
         params: Vec<serde_json::Value>,
@@ -19,4 +19,10 @@ pub enum RunnerResponse {
     JobStderr { msg: String },
     Log(LogMessage),
     FinishedJob,
+}
+
+impl From<LogMessage> for RunnerResponse {
+    fn from(value: LogMessage) -> Self {
+        Self::Log(value)
+    }
 }

@@ -6,16 +6,14 @@ use semver::Version;
 pub mod log;
 pub mod runner_proto;
 
-pub type GenericPluginConfig = HashMap<String, serde_json::Value>;
-
 pub const PROTO_VERSION: Version = Version::new(0, 1, 0);
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub enum AlfredRequest {
+pub enum GilbertRequest<Config> {
     Init {
         gilbert_version: Version,
         protocol_version: Version,
-        config: GenericPluginConfig,
+        config: Config,
     },
     IntoRunnerProtocol,
 }
@@ -33,4 +31,10 @@ pub enum PluginResponse {
         accpeted_extensions: Vec<Cow<'static, str>>,
     },
     Log(LogMessage),
+}
+
+impl From<LogMessage> for PluginResponse {
+    fn from(value: LogMessage) -> Self {
+        Self::Log(value)
+    }
 }
