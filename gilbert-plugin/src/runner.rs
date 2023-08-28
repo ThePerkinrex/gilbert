@@ -1,12 +1,16 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, error::Error};
 
 use futures_util::{Stream, StreamExt};
 use gilbert_plugin_api::{runner_proto::RunnerResponse, GeneralPluginResponse, GilbertRequest};
 use semver::{Version, VersionReq};
 use serde::Deserialize;
+use thiserror::Error;
 use tracing::info;
 
 use crate::{sender::Sender, RunError};
+
+use self::job::Job;
+pub mod job;
 
 pub trait RunnerBuilder {
     fn accepted_extensions(&self) -> Vec<Cow<'static, str>>;
@@ -16,8 +20,26 @@ pub trait RunnerBuilder {
     fn build<S: Sender<RunnerResponse>>(self, sender: S) -> Self::Built<S>;
 }
 
+#[async_trait::async_trait]
 pub trait Runner {
+    type Job<'a>: Job where Self: 'a;
+    type Err: Error;
 
+    async fn start_job(&self, params: Vec<serde_json::Value>) -> Result<Self::Job<'_>, Self::Err>;
+}
+
+#[derive(Debug, Error)]
+pub enum RunnerError<RunnerErr: Error, JobErr: Error> {
+    #[error("Error starting job: {0}")]
+    JobStart(RunnerErr),
+    #[error("Error starting stage: {0}")]
+    StageRun(JobErr)
+}
+
+impl<RunnerErr: Error + 'static, JobErr: Error + 'static> From<RunnerError<RunnerErr, JobErr>> for RunError where RunnerError<RunnerErr, JobErr>: Send {
+    fn from(val: RunnerError<RunnerErr, JobErr>) -> Self {
+        Self::SpecificError(Box::new(val))
+    }
 }
 
 pub(crate) async fn init_runner_fn_internal<Config, Init, P, E1, FR, S>(
@@ -70,6 +92,10 @@ where
         GeneralPluginResponse::Inner(serde_json::to_value(g).unwrap())
     });
     let runner = runner_builder.build(sender);
+    // let r: Result<(), RunnerError<<<P as RunnerBuilder>::Built<_> as Runner>::Err, <<<P as RunnerBuilder>::Built<_> as Runner>::Job<'_> as Job>::Err>> = async move {
+        
+    //     Ok(())
+    // };
     // TODO
     Ok(())
 }

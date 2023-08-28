@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use futures_util::{Sink, SinkExt};
 use gilbert_plugin_api::log::LogMessage;
 use plugin::init_plugin_fn_internal;
@@ -36,6 +38,8 @@ enum RunError {
         "Protocol version incompatible: host has {host} and our current build is {implemented}"
     )]
     VersionIncompatible { implemented: Version, host: Version },
+    #[error(transparent)]
+    SpecificError(Box<dyn Error + Send>)
 }
 
 enum PrinterState {
