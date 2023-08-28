@@ -1,5 +1,5 @@
+use futures_util::{Sink, SinkExt};
 use gilbert_plugin_api::log::LogMessage;
-use futures_util::{ Sink, SinkExt, };
 use plugin::init_plugin_fn_internal;
 use runner::init_runner_fn_internal;
 use semver::Version;
@@ -14,13 +14,13 @@ use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec, LinesCodecError};
 use tracing::error;
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
 
-mod subscriber;
-mod sender;
 pub mod plugin;
 pub mod runner;
+pub mod sender;
+mod subscriber;
 
-pub use plugin::Plugin;
-pub use runner::Runner;
+pub use plugin::PluginBuilder;
+pub use runner::RunnerBuilder;
 
 #[derive(Debug, Error)]
 enum RunError {
@@ -58,7 +58,7 @@ where
 
 struct Exit {
     tx_state: UnboundedSender<PrinterState>,
-    handle: JoinHandle<Result<(), RunError>>
+    handle: JoinHandle<Result<(), RunError>>,
 }
 
 impl Exit {
@@ -106,14 +106,21 @@ where
         Ok::<(), RunError>(())
     });
 
-    (tx, Exit {tx_state, handle: s}, frame_read)
+    (
+        tx,
+        Exit {
+            tx_state,
+            handle: s,
+        },
+        frame_read,
+    )
 }
 
 pub async fn init_plugin_fn<Config, Init, P>(version: Version, init: Init) -> !
 where
     Config: for<'a> Deserialize<'a>,
     Init: FnOnce(Config) -> P + Send,
-    P: Plugin,
+    P: PluginBuilder,
 {
     let (tx, exit, mut frame_read) = load_plugin().await;
     match init_plugin_fn_internal(version, init, &mut frame_read, tx).await {
@@ -128,7 +135,7 @@ where
 pub async fn init_plugin<Config, P>(version: Version) -> !
 where
     Config: for<'a> Deserialize<'a>,
-    P: Plugin + From<Config>,
+    P: PluginBuilder + From<Config>,
 {
     init_plugin_fn::<Config, _, P>(version, Into::into).await
 }
@@ -137,7 +144,7 @@ pub async fn init_runner_fn<Config, Init, P>(version: Version, init: Init) -> !
 where
     Config: for<'a> Deserialize<'a>,
     Init: FnOnce(Config) -> P + Send,
-    P: Runner,
+    P: RunnerBuilder,
 {
     let (tx, exit, mut frame_read) = load_plugin().await;
     match init_runner_fn_internal(version, init, &mut frame_read, tx).await {
@@ -152,7 +159,7 @@ where
 pub async fn init_runner<Config, P>(version: Version) -> !
 where
     Config: for<'a> Deserialize<'a>,
-    P: Runner + From<Config>,
+    P: RunnerBuilder + From<Config>,
 {
     init_runner_fn::<Config, _, P>(version, Into::into).await
 }
