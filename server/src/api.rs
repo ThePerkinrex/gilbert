@@ -2,7 +2,7 @@ use axum::{
     extract::{State, WebSocketUpgrade},
     response::Response,
     routing::get,
-    Router,
+    Router, Json,
 };
 use chatter_protocol::ChatterMessage;
 use tracing::{error, info};
@@ -48,7 +48,18 @@ where
     })
 }
 
-fn info<Ev>() -> Router<AppState<Ev>>
+#[derive(serde::Serialize)]
+enum NodeStatus {
+    Up, Down, Unknown
+}
+
+#[derive(serde::Serialize)]
+struct Info {
+    node_name: String,
+    cluster: Vec<(String, NodeStatus)>,
+    jobs: Vec<String>
+}
+fn info<Ev>(state: State<AppState<Ev>>) -> Json<Info>
 where
     Ev: Send + Sync + EventHandlers + 'static,
     ConnectionError: FromErrors<Ev>,
@@ -63,5 +74,5 @@ where
 {
     Router::new()
         .route("/chatter", get(chatter))
-        .nest("/info", info())
+        // .route("/info", get(info))
 }

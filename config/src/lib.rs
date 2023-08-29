@@ -1,4 +1,5 @@
 use diff::Diff;
+use url::Url;
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 use url_diff::DiffUrl;
 
@@ -6,6 +7,7 @@ use url_diff::DiffUrl;
 use schemars::JsonSchema;
 
 mod url_diff;
+pub mod repo;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
@@ -15,6 +17,27 @@ mod url_diff;
 pub struct GeneralConfig {
     pub nodes: Vec<Node>,
     pub tasks: HashMap<String, TaskInfo>,
+    pub plugins: Vec<Plugin>
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
+#[diff(attr(
+    #[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize, Clone)]
+))]
+#[serde(untagged)]
+pub enum Plugin {
+    Name(String),
+    NameAndVersion {
+        name: String,
+        version: String
+    },
+    NameWithRepo {
+        name: String,
+        repo: String,
+        #[serde(default)]
+        version: Option<String>
+    }
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
@@ -34,6 +57,29 @@ pub struct NodeConfig {
     pub name: String,
     #[serde(default)]
     pub priority: u32,
+    pub repos: HashMap<String, RepoSource>
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "schemars", derive(JsonSchema))]
+#[serde(tag = "source")]
+pub enum RepoSource {
+    #[serde(rename = "fs", alias = "filesystem")]
+    Fs {
+        path: PathBuf
+    },
+    #[serde(rename = "git")]
+    Git {
+        repo: String,
+        #[serde(default)]
+        version: Option<String>,
+        #[serde(default)]
+        path: Option<PathBuf>
+    },
+    #[serde(rename = "web")]
+    Web {
+        url: Url
+    }
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Diff, PartialEq, Eq, Clone)]

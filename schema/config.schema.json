@@ -19,6 +19,7 @@
       "type": "object",
       "required": [
         "nodes",
+        "plugins",
         "tasks"
       ],
       "properties": {
@@ -26,6 +27,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/Node"
+          }
+        },
+        "plugins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Plugin"
           }
         },
         "tasks": {
@@ -59,7 +66,8 @@
         "ca_file",
         "cert_file",
         "key_file",
-        "name"
+        "name",
+        "repos"
       ],
       "properties": {
         "addr": {
@@ -82,6 +90,12 @@
           "type": "integer",
           "format": "uint32",
           "minimum": 0.0
+        },
+        "repos": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/RepoSource"
+          }
         }
       }
     },
@@ -107,6 +121,123 @@
         "string",
         "object",
         "array"
+      ]
+    },
+    "Plugin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "name",
+            "repo"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "version": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "RepoSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "path",
+            "source"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "fs"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "repo",
+            "source"
+          ],
+          "properties": {
+            "path": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "repo": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "git"
+              ]
+            },
+            "version": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "url"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "web"
+              ]
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
       ]
     },
     "TaskInfo": {
