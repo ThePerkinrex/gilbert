@@ -1,19 +1,27 @@
-use std::{path::{PathBuf, Component}, collections::HashMap};
+use std::{path::{PathBuf, Component}, collections::HashMap, default};
 
 use serde::{Deserialize, de::Expected};
 use target_lexicon::Triple;
+use url::Url;
+
+use crate::Source;
+
+type PluginSource = Source;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Repository {
-	pub plugins: HashMap<String, Plugin>
+	pub plugins: HashMap<String, PluginSource>
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Plugin {
+	#[serde(default)]
 	args: Vec<String>,
-	binaries: HashMap<Triple, String>
+	binaries: HashMap<Triple, String>,
+	#[serde(default)]
+	wasm_base: Option<String>
 }
 
 // #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]

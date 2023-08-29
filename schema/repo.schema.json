@@ -9,31 +9,83 @@
     "plugins": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/definitions/Plugin"
+        "$ref": "#/definitions/Source"
       }
     }
   },
   "definitions": {
-    "Plugin": {
-      "type": "object",
-      "required": [
-        "args",
-        "binaries"
-      ],
-      "properties": {
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string"
+    "Source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "path",
+            "source"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "fs"
+              ]
+            }
           }
         },
-        "binaries": {
+        {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
+          "required": [
+            "repo",
+            "source"
+          ],
+          "properties": {
+            "path": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "repo": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "git"
+              ]
+            },
+            "version": {
+              "default": null,
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "url"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "web"
+              ]
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            }
           }
         }
-      }
+      ]
     }
   }
 }

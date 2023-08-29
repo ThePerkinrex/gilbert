@@ -1,0 +1,11 @@
+{
+	"$schema": "https://raw.githubusercontent.com/ThePerkinrex/gilbert/main/schema/repo.schema.json",
+	"plugins": {
+		"yes": {
+			"args": [],
+			"binaries": {
+
+			}
+		}
+	}
+}

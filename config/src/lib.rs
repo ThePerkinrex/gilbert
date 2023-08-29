@@ -57,13 +57,13 @@ pub struct NodeConfig {
     pub name: String,
     #[serde(default)]
     pub priority: u32,
-    pub repos: HashMap<String, RepoSource>
+    pub repos: HashMap<String, Source>
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "schemars", derive(JsonSchema))]
 #[serde(tag = "source")]
-pub enum RepoSource {
+pub enum Source {
     #[serde(rename = "fs", alias = "filesystem")]
     Fs {
         path: PathBuf

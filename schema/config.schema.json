@@ -94,7 +94,7 @@
         "repos": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/RepoSource"
+            "$ref": "#/definitions/Source"
           }
         }
       }
@@ -167,7 +167,7 @@
         }
       ]
     },
-    "RepoSource": {
+    "Source": {
       "oneOf": [
         {
           "type": "object",
