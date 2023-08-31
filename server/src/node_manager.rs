@@ -42,6 +42,12 @@ impl NodeManager {
             .map(|(x, _)| x.clone())
     }
 
+    pub fn nodes(&self) -> impl Iterator<Item = (&str, &NodeStatus)> + '_ {
+        self.nodes
+            .iter()
+            .map(|(x, y)| (&**x, y))
+    }
+
     pub async fn connect<Ev>(
         &mut self,
         node: &Node,

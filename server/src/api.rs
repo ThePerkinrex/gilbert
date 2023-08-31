@@ -1,10 +1,13 @@
+use std::collections::HashMap;
+
 use axum::{
-    extract::{State, WebSocketUpgrade},
+    extract::{State, WebSocketUpgrade, Path},
     response::Response,
     routing::get,
     Router, Json,
 };
 use chatter_protocol::ChatterMessage;
+use config::Param;
 use tracing::{error, info};
 
 use crate::{
@@ -49,24 +52,40 @@ where
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 enum NodeStatus {
-    Up, Down, Unknown
+    Connected, Disconnected
 }
 
-#[derive(serde::Serialize)]
-struct Info {
-    node_name: String,
-    cluster: Vec<(String, NodeStatus)>,
-    jobs: Vec<String>
-}
-fn info<Ev>(state: State<AppState<Ev>>) -> Json<Info>
+async fn nodes<Ev>(State(state): State<AppState<Ev>>) -> Json<HashMap<String, NodeStatus>>
 where
     Ev: Send + Sync + EventHandlers + 'static,
     ConnectionError: FromErrors<Ev>,
 {
-    todo!()
+    Json(state.node_manager.read().await.nodes().map(|(name, status)| (name.to_string(), match status {
+        crate::node_manager::NodeStatus::Down | crate::node_manager::NodeStatus::Unknown => NodeStatus::Disconnected,
+        crate::node_manager::NodeStatus::Up(_) => NodeStatus::Connected,
+    })).collect())
 }
 
+async fn jobs<Ev>(State(state): State<AppState<Ev>>) -> Json<Vec<String>>
+    where
+        Ev: Send + Sync + EventHandlers + 'static,
+        ConnectionError: FromErrors<Ev>,
+    {
+        Json(state.config.general.tasks.keys().cloned().collect())
+    }
+
+async fn job<Ev>(State(state): State<AppState<Ev>>, Path(name): Path<String>) -> Json<()>
+    where
+        Ev: Send + Sync + EventHandlers + 'static,
+        ConnectionError: FromErrors<Ev>,
+    {
+        todo!();
+        Json(())
+    }
+
+#[allow(clippy::redundant_pub_crate)]
 pub(crate) fn api<Ev>() -> Router<AppState<Ev>>
 where
     Ev: Send + Sync + EventHandlers + 'static,
@@ -74,5 +93,6 @@ where
 {
     Router::new()
         .route("/chatter", get(chatter))
-        // .route("/info", get(info))
+        .route("/nodes", get(nodes))
+        .route("/jobs", get(jobs))
 }

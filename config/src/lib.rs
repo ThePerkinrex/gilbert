@@ -17,6 +17,7 @@ pub mod repo;
 pub struct GeneralConfig {
     pub nodes: Vec<Node>,
     pub tasks: HashMap<String, TaskInfo>,
+    #[serde(default)]
     pub plugins: Vec<Plugin>
 }
 
@@ -57,7 +58,7 @@ pub struct NodeConfig {
     pub name: String,
     #[serde(default)]
     pub priority: u32,
-    pub repos: HashMap<String, Source>
+    // pub repos: HashMap<String, Source>
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]

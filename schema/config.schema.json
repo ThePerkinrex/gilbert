@@ -19,7 +19,6 @@
       "type": "object",
       "required": [
         "nodes",
-        "plugins",
         "tasks"
       ],
       "properties": {
@@ -30,6 +29,7 @@
           }
         },
         "plugins": {
+          "default": [],
           "type": "array",
           "items": {
             "$ref": "#/definitions/Plugin"
@@ -66,8 +66,7 @@
         "ca_file",
         "cert_file",
         "key_file",
-        "name",
-        "repos"
+        "name"
       ],
       "properties": {
         "addr": {
@@ -90,12 +89,6 @@
           "type": "integer",
           "format": "uint32",
           "minimum": 0.0
-        },
-        "repos": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/Source"
-          }
         }
       }
     },
@@ -162,79 +155,6 @@
                 "string",
                 "null"
               ]
-            }
-          }
-        }
-      ]
-    },
-    "Source": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "path",
-            "source"
-          ],
-          "properties": {
-            "path": {
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "enum": [
-                "fs"
-              ]
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "repo",
-            "source"
-          ],
-          "properties": {
-            "path": {
-              "default": null,
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "repo": {
-              "type": "string"
-            },
-            "source": {
-              "type": "string",
-              "enum": [
-                "git"
-              ]
-            },
-            "version": {
-              "default": null,
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": [
-            "source",
-            "url"
-          ],
-          "properties": {
-            "source": {
-              "type": "string",
-              "enum": [
-                "web"
-              ]
-            },
-            "url": {
-              "type": "string",
-              "format": "uri"
             }
           }
         }
